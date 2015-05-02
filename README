@@ -1,0 +1,39 @@
+Short script for importing projects and tasks into Todoist.
+
+Todoist only supports importing tasks into one project at a time. I want to
+import all my projects from Doit.im in one go.
+
+Export data from Doit.im
+========================
+
+Doit.im doesn't seem to like support for exporting your data, so a workaround is
+needed.
+
+Export tasks
+------------
+
+To get all *tasks* from Doit.im: 
+
+1. Run your browser in development mode (<F12>)
+
+2. Get a list of all the tasks you want to export. You could for instance create
+   a filter to get these listed out.
+
+3. Run the javascript code:
+
+    document.innerHTML = JSON.stringify(TASKS)
+
+4. Save the HTML document.
+
+5. Open the HTML document and strip out the remaining HTML elements.
+
+You now have a valid JSON file, with all the tasks' details. This could be used
+for any import you would like, as it's easy to convert from JSON.
+
+Export projects
+---------------
+
+To get all *projects* from Doit.im, you need to...
+
+TODO
+
