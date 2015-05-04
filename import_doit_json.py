@@ -58,7 +58,15 @@ class Doit:
     def print_status(self):
         """Print status on the Doit content."""
         for k in ('tasks', 'projects', 'tags', 'contexts'):
-            print "%15d %s" % (len(getattr(self, k)), k)
+            print "%7d %s" % (len(getattr(self, k)), k)
+
+    def get_project_name(self, uuid):
+        """Return the name of a project.
+
+        @param basestr uuid: The project id.
+
+        """
+        return self.projects[uuid]['name']
 
 def main():
     parser = argparse.ArgumentParser(description="Import Doit.im data and "
@@ -70,7 +78,7 @@ def main():
     doit_data = parse_json_file(args.doit_file)
     doit = Doit(doit_data)
 
-    print "Doit.im data read. Status:"
+    print "Doit.im data read:"
     doit.print_status()
 
 if __name__ == '__main__':
