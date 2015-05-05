@@ -78,6 +78,35 @@ class Doit:
         """Return a list of all the tags, by its names."""
         return dict((t['name'], t) for t in self.tags.itervalues())
 
+    def list_project_names(self):
+        """Return a list of all the projects, by its names."""
+        return dict((t['name'], t) for t in self.projects.itervalues())
+
+    def list_active_projects(self):
+        """Get all active projects.
+
+        The list is filtering for deleted and archived projects, so only active
+        or upcoming projects are returned.
+
+        The list is sorted by position.
+
+        """
+        ret = []
+        for k, pr in self.projects.iteritems():
+            if pr['status'] not in ('active', 'inactive'):
+                print "Ignore not active project: %s" % pr
+                continue
+            if (pr['deleted'] or pr['completed'] or pr['archived'] or
+                    pr['trashed']):
+                continue
+            ret.append(pr)
+        return self.sort_project_list(ret)
+
+    @staticmethod
+    def sort_project_list(projects):
+        """Sort a list of projects by position."""
+        return sorted(projects, key=lambda pr: pr['pos'])
+
 class Todoist_exporter:
 
     """ Class that handles the export to Todoist. """
@@ -90,27 +119,22 @@ class Todoist_exporter:
         """Do the full export to Todoist"""
 
         self.export_labels()
-        # TODO:
-        # self.export_projects()
+        self.export_projects()
         # TODO: inbox is special
         # self.export_tasks()
+        # TODO: Ask for confirmation before commiting
         self.tdst.commit()
-        # TODO: Ask for confirmation before commit
-        self.tdst.sync()
+        #self.tdst.sync()
 
     def export_labels(self):
         """Export all labels to Todoist.
 
-        It fetches Contexts and Tags from Doit and transforms them into
-        Todoist's Labels.
-
-        Some name conversion is done.
+        It fetches Contexts and Tags from the Doit data and creates them in
+        Todoist as Labels.
 
         """
         names = self.doit.list_context_names().keys()
         names += self.doit.list_tag_names().keys()
-        print "All names:", names
-
         self.tdst.labels.sync()
         existing = [l['name'] for l in self.tdst.labels.all()]
 
@@ -119,6 +143,52 @@ class Todoist_exporter:
                 continue
             print "Creating label: %s" % name
             self.tdst.labels.add(name)
+
+    def export_projects(self):
+        """Export all projects to Todoist.
+
+        All projects from Doit are created in Todoist as regular projects. This
+        might not be what you want.
+        
+        All the projects are stored under a super project called "Doit". The
+        super project gets created if it doesn't exist.
+
+        TODO: Might want to have the Goals as their super projects?
+
+        """
+        projects = self.doit.list_active_projects()
+        self.tdst.projects.sync()
+        # Find the super project to position the projects underneath
+        superpr = self.tdst.projects.all(lambda p: p['name'] == 'Doit.im')
+        if superpr:
+            position = superpr[0]['item_order']
+        else:
+            print "Creating super project: Doit.im"
+            ret = self.tdst.projects.add('Doit.im', indent=1)
+            position = ret['indent']
+
+        existing = [l['name'] for l in self.tdst.projects.all()]
+
+        # The returned list is sorted
+        for pr in projects:
+            name = pr['name']
+            if name in existing:
+                continue
+            print "Creating project: %s" % name
+            position += 1
+            ret = self.tdst.projects.add(name, indent=2, item_order=position)
+            # TODO: Remove debug info
+            print ret
+
+    def export_tasks(self):
+        """Export all tasks to Todoist.
+
+        Some special handling is needed, as Doit and Todoist works differently. 
+
+        TODO.
+
+        """
+        pass
 
 def main():
     parser = argparse.ArgumentParser(description="Import Doit.im data and "
