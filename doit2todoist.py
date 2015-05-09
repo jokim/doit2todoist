@@ -380,11 +380,6 @@ class Todoist_exporter:
         super_pos = superpr['item_order']
         super_indent = superpr['indent']
 
-        # For projects marked as someday/maybe
-        somedaypr = self.tdst.assert_and_get_project(self.somedayproject_name)
-        someday_pos = somedaypr['item_order']
-        someday_indent = somedaypr['indent']
-
         existing = [l['name'] for l in self.tdst.projects.all()]
 
         # The returned list is sorted
@@ -395,16 +390,9 @@ class Todoist_exporter:
                 print "Project already exists: %s" % name
                 continue
             print "Creating project: %s" % name
-            if pr['status'] == 'inactive':
-                someday_pos += 1
-                position = someday_pos
-                indent = someday_indent
-            else:
-                super_pos += 1
-                position = super_pos
-                indent = super_indent
-
-            self.tdst.projects.add(name, indent=indent+1, item_order=position)
+            super_pos += 1
+            self.tdst.projects.add(name, indent=super_indent+1,
+                                   item_order=super_position)
             ret = self.tdst.commit()
             prid = ret.keys()[0]
             ret = self.tdst.commit()
