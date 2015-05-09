@@ -32,6 +32,11 @@ script might therefore not be what you want. Some general rules for the import:
 
 - All Doit tags becomes their own Todoist label.
 
+- Doit has start and end dates, Todoist only has a due date. The sync takes a
+  guess.
+
+- Repeating tasks are not added correctly
+
 Requirements
 ------------
 
