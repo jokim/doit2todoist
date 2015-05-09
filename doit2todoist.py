@@ -116,14 +116,14 @@ class Doit:
         The list is filtering for deleted and archived projects, so only active
         or upcoming projects are returned.
 
-        The list is sorted by position.
+        The list is sorted by position, but with the active projects first.
 
         Elements in a Doit project, with my understanding of it:
 
         - uuid (str): The unique id of the project
         - name (str): The name of the project
         - status (str): If the project is 'active' or 'inactive'. Inactive does
-          here mean that the project is in Someday/Maybe mode.
+          here mean that the project has a start date in the future.
         - deleted: If the project is deleted
         - archived: If the project is archived
         - trashed: If the project is trashed
@@ -145,16 +145,17 @@ class Doit:
         - end_at: The end date for the project
 
         """
-        ret = []
+        active = []
+        inactive = []
         for k, pr in self.projects.iteritems():
-            if pr['status'] not in ('active', 'inactive'):
-                print "Ignore not active project: %s" % pr
-                continue
             if (pr['deleted'] or pr['completed'] or pr['archived'] or
                     pr['trashed']):
                 continue
-            ret.append(pr)
-        return self.sort_by_pos(ret)
+            if pr['status'] == 'active':
+                active.append(pr)
+            else:
+                inactive.append(pr)
+        return self.sort_by_pos(active) + self.sort_by_pos(inactive)
 
     def list_active_tasks(self):
         """Get all active tasks from Doit data.
