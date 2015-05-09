@@ -296,6 +296,21 @@ class TodoistHelperAPI(todoist.TodoistAPI):
             self.sync()
         return self.get_project_by_name(prname)
 
+    _max_len_request_uri = 4000
+
+    def add_note(self, item_id, note):
+        """Add a note to Todoist.
+
+        Takes care of long notes by splitting them up.
+        
+        """
+        if len(note) > self._max_len_request_uri:
+            # TODO: Split!
+            # For now, I'm only cutting out the first part...
+            return self.notes.add(item_id, note[:self._max_len_request_uri])
+        else:
+            return self.notes.add(item_id, note)
+
 class Todoist_exporter:
 
     """ Class that handles the export to Todoist. """
@@ -391,11 +406,11 @@ class Todoist_exporter:
             self.tdst.projects.add(name, indent=indent+1, item_order=position)
             ret = self.tdst.commit()
             prid = ret.keys()[0]
-            # TODO: Add pr descr as a note
+            ret = self.tdst.commit()
+            # Adding the project's description as a note to the project:
             if 'notes' in pr:
                 # TODO: temp id seems not to work when adding notes?
-                print self.tdst.notes.add(prid, pr['notes'])
-            print self.tdst.commit()
+                print self.tdst.add_note(prid, pr['notes'])
 
     def export_tasks(self):
         """Export all Doit tasks as Items in Todoist.
@@ -470,11 +485,12 @@ class Todoist_exporter:
                                       item_order=positions[prid],
                                       priority=task['priority'] + 1,
                                       date_string=date_str, 
-                                      labels=label_ids,
-                                      note=task.get('notes'))
-            # TODO: Remove debug info when done debugging
+                                      labels=label_ids)
             print ret
-            self.tdst.commit()
+            if task.get('notes'):
+                print self.tdst.add_note(ret['id'], task['notes'])
+            # TODO: Remove debug info when done debugging
+            print self.tdst.commit()
 
     def calculate_due_date(self, task, project):
         """Figure out what due date to set in Todoist for a task.
