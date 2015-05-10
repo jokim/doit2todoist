@@ -49,6 +49,10 @@ class CommitException(Exception):
         # TODO: Parse and make it easier to e.g. print out the errors?
         self.errors = errors
 
+    def __str__(self):
+        print "%s (%s)" % (self.args[0], 
+                           ', '.join(map(str, self.errors.itervalues())))
+
 class Doit:
 
     """ A representation of the data from Doit.im. """
@@ -307,18 +311,72 @@ class TodoistHelperAPI(todoist.TodoistAPI):
 
     _max_len_request_uri = 4000
 
-    def add_note(self, item_id, note):
+    def add_note(self, note, item_id=None, project_id=None):
         """Add a note to Todoist.
 
         Takes care of long notes by splitting them up.
         
         """
+        assert item_id or project_id, "Missing item or project id"
         if len(note) > self._max_len_request_uri:
             # TODO: Split!
             # For now, I'm only cutting out the first part...
-            return self.notes.add(item_id, note[:self._max_len_request_uri])
+            return self.notes.add(item_id=item_id, project_id=project_id,
+                                  content=note[:self._max_len_request_uri])
         else:
-            return self.notes.add(item_id, note)
+            return self.notes.add(item_id=item_id, content=note,
+                                  project_id=project_id)
+
+    def assert_project(self, name, **kwargs):
+        """Assert that a given project exists and is updated.
+
+        Makes sure that the given details are correct. Uses the *name* of the
+        project as identificator in Todoist.
+
+        :rtype: bool
+        :return: True if the project was created, otherwise False.
+
+        """
+        created = False
+        try:
+            project = self.get_project_by_name(name)
+        except NotFoundException:
+            project = self.add_project(name, **kwargs)
+            created = True
+        else:
+            needs_update = False
+            print kwargs
+            for key, val in kwargs.iteritems():
+                if key == 'notes':
+                    # notes are special
+                    continue
+                if project.data.get(key) != val:
+                    needs_update = True
+            if needs_update:
+                project.update(**kwargs)
+        self.commit()
+
+        if kwargs.get('notes'):
+            # TODO: Check if note is already added to the project
+            self.add_note(kwargs['notes'], project_id=project['id'])
+            try:
+                self.commit()
+            except CommitException, e:
+                logging.warn("Failed adding project note to %s: %s", name, e)
+                print "Failed adding project note to %s" % name
+        return created
+
+    def add_project(self, name, indent, item_order, notes):
+        """Add a project to Todoist.
+        
+        :rtype: todoist.models.Project
+        :return: The created project
+        
+        """
+        p = self.projects.add(name, indent=indent, item_order=super_pos,
+                              notes=notes)
+        self.commit()
+        return p
 
     def commit(self):
         """Commit and check feedback and raise Exception.
@@ -330,9 +388,11 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         ret = super(TodoistHelperAPI, self).commit()
         if isinstance(ret, dict):
             if 'error' in ret:
+                logging.error("Error from Todoist: %s", ret)
                 raise CommitException('Commit to Todoist failed', ret)
             for key, row in ret.iteritems():
                 if isinstance(row, dict) and 'error' in row:
+                    logging.error("Error from Todoist: %s: %s", key, row)
                     errors[key] = row
         if errors:
             raise CommitException('Commit to Todoist failed, %d errors' %
@@ -413,21 +473,13 @@ class Todoist_exporter:
         # The returned list is sorted
         for pr in projects:
             name = pr['name']
-            if name in existing:
-                # TODO: Update project too, making sure the details are correct
-                print "Project already exists: %s" % name
-                continue
-            print "Creating project: %s" % name
-            super_pos += 1
-            self.tdst.projects.add(name, indent=super_indent+1,
-                                   item_order=super_pos)
-            ret = self.tdst.commit()
-            prid = ret.keys()[0]
-            ret = self.tdst.commit()
-            # Adding the project's description as a note to the project:
-            if 'notes' in pr:
-                # TODO: temp id seems not to work when adding notes?
-                print self.tdst.add_note(prid, pr['notes'])
+            created = self.tdst.assert_project(pr['name'],
+                                               indent=super_indent + 1,
+                                               item_order=super_pos,
+                                               notes=pr.get('notes'))
+            if created:
+                print "Created project: %s" % pr['name']
+                super_pos += 1
 
     def export_tasks(self):
         """Export all Doit tasks as Items in Todoist.
@@ -511,7 +563,7 @@ class Todoist_exporter:
                                       labels=label_ids)
             print ret
             if task.get('notes'):
-                print self.tdst.add_note(ret['id'], task['notes'])
+                print self.tdst.add_note(task['notes'], item_id=ret['id'])
             # TODO: Remove debug info when done debugging
             print self.tdst.commit()
 
@@ -587,7 +639,7 @@ class Todoist_exporter:
                   "Manual intervention is needed.")
             return ""
         else:
-            logger.warn('Unhandled repeater mode: %s', rep['mode'])
+            logging.warn('Unhandled repeater mode: %s', rep['mode'])
             print "Unhandled repeat mode for task, needs manual intervention"
             return ''
         return 'every %s %s' % (cycles[config['cycle']], days)
