@@ -366,15 +366,14 @@ class TodoistHelperAPI(todoist.TodoistAPI):
                 print "Failed adding project note to %s" % name
         return created
 
-    def add_project(self, name, indent, item_order, notes):
+    def add_project(self, name, **kwargs):
         """Add a project to Todoist.
         
         :rtype: todoist.models.Project
         :return: The created project
         
         """
-        p = self.projects.add(name, indent=indent, item_order=super_pos,
-                              notes=notes)
+        p = self.projects.add(name, **kwargs)
         self.commit()
         return p
 
