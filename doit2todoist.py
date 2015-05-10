@@ -39,7 +39,15 @@ def timestamp_to_date(timestamp, format='%Y-%m-%d'):
     return time.strftime(format, time.gmtime(timestamp/1000))
 
 class NotFoundException(Exception):
+    """If 'something' was not found."""
     pass
+
+class CommitException(Exception):
+    """If a commit to Todoist failed."""
+    def __init__(self, msg, errors):
+        super(CommitException, self).__init__(msg)
+        # TODO: Parse and make it easier to e.g. print out the errors?
+        self.errors = errors
 
 class Doit:
 
@@ -174,7 +182,8 @@ class Doit:
           'gtd', 'proj_Alpha']
         - context (str): The id to the task's context
         - attribute (str): Where the task is put. Example on status: 'waiting',
-          'inbox', 'plan', 'noplan' and 'next'.
+          'inbox', 'plan', 'noplan' and 'next'. Tasks marked as "Someday/Maybe"
+          are tagged with 'noplan', it seems.
         - estimated_time: How long it's estimated to take, or 0 if not set
         - spent_time: How long it's estimated to take, or 0 if not set
         - pos (int): Relative position of task in lists
@@ -291,8 +300,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
             return self.get_project_by_name(prname)
         except NotFoundException:
             print "Creating project: %s" % prname
-            r = self.tdst.projects.add(prname)
-            # TODO: I should probably not commit here...
+            r = self.projects.add(prname)
             self.commit()
             self.sync()
         return self.get_project_by_name(prname)
@@ -311,6 +319,25 @@ class TodoistHelperAPI(todoist.TodoistAPI):
             return self.notes.add(item_id, note[:self._max_len_request_uri])
         else:
             return self.notes.add(item_id, note)
+
+    def commit(self):
+        """Commit and check feedback and raise Exception.
+
+        This is for easier code, rasising errors if something is wrong.
+
+        """
+        errors = {}
+        ret = super(TodoistHelperAPI, self).commit()
+        if isinstance(ret, dict):
+            if 'error' in ret:
+                raise CommitException('Commit to Todoist failed', ret)
+            for key, row in ret.iteritems():
+                if isinstance(row, dict) and 'error' in row:
+                    errors[key] = row
+        if errors:
+            raise CommitException('Commit to Todoist failed, %d errors' %
+                                  len(errors), errors)
+        return ret
 
 class Todoist_exporter:
 
@@ -354,6 +381,7 @@ class Todoist_exporter:
                 continue
             print "Creating label: %s" % name
             self.tdst.labels.add(name)
+            self.tdst.commit()
 
     def export_projects(self):
         """Export all projects to Todoist.
@@ -377,8 +405,8 @@ class Todoist_exporter:
         # Create the meta projects:
         superpr = self.tdst.assert_and_get_project(self.superproject_name)
         # The projects must be positioned underneath the super project:
-        super_pos = superpr['item_order']
-        super_indent = superpr['indent']
+        super_pos = superpr.data.get('item_order', 999999)
+        super_indent = superpr.data.get('indent', 1)
 
         existing = [l['name'] for l in self.tdst.projects.all()]
 
@@ -392,7 +420,7 @@ class Todoist_exporter:
             print "Creating project: %s" % name
             super_pos += 1
             self.tdst.projects.add(name, indent=super_indent+1,
-                                   item_order=super_position)
+                                   item_order=super_pos)
             ret = self.tdst.commit()
             prid = ret.keys()[0]
             ret = self.tdst.commit()
@@ -436,13 +464,19 @@ class Todoist_exporter:
             print "Creating task: %s" % name
 
             doit_project = None
+            if 'project' in task:
+                doit_project = self.doit.get_project(task['project'])
+
+            # Special treatment for tasks in the inbox and someday categories
             if task['attribute'] == 'inbox':
                 prname = 'Inbox'
+            elif task['attribute'] == 'noplan':
+                prname = self.somedayproject_name
             elif 'project' in task:
-                doit_project = self.doit.get_project(task['project'])
                 prname = self.doit.get_project_name(task['project'])
             else:
                 prname = self.superproject_name
+
             try:
                 prid = self.tdst.get_project_id_by_name(prname)
             except KeyError:
