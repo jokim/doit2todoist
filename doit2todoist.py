@@ -380,11 +380,19 @@ class TodoistHelperAPI(todoist.TodoistAPI):
     def commit(self):
         """Commit and check feedback and raise Exception.
 
-        This is for easier code, rasising errors if something is wrong.
+        This is for easier code, rasising errors if something is wrong. It also
+        have simple handling of request limits.
 
         """
         errors = {}
         ret = super(TodoistHelperAPI, self).commit()
+        # Handle limit block exceptions specially, by rerunning it after a few
+        # seconds:
+        if isinstance(ret, dict) and ret.get('error_tag') == 'LIMITS_REACHED':
+            print "Todoist's request limit reached, pausing for a few seconds"
+            time.sleep(6)
+            ret = super(TodoistHelperAPI, self).commit()
+
         if isinstance(ret, dict):
             if 'error' in ret:
                 logging.error("Error from Todoist: %s", ret)
