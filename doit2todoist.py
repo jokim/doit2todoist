@@ -475,8 +475,6 @@ class Todoist_exporter:
         super_pos = superpr.data.get('item_order', 999999)
         super_indent = superpr.data.get('indent', 1)
 
-        existing = [l['name'] for l in self.tdst.projects.all()]
-
         # The returned list is sorted
         for pr in projects:
             name = pr['name']
@@ -568,6 +566,7 @@ class Todoist_exporter:
                                       priority=task['priority'] + 1,
                                       date_string=date_str, 
                                       labels=label_ids)
+            self.tdst.commit()
             print ret
             if task.get('notes'):
                 print self.tdst.add_note(task['notes'], item_id=ret['id'])
