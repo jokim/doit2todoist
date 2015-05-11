@@ -581,7 +581,7 @@ class Todoist_exporter:
         start and end dates. A translation is needed:
 
         - If a Doit task has a start and end date, I set the due date to the
-          end date. TODO: Lower the position if the task has a start date into
+          start date. TODO: Lower the position if the task has a start date into
           the future?
 
         - If a Doit task only has a start OR an end date, I set the due date
@@ -591,10 +591,10 @@ class Todoist_exporter:
           instead.
 
         """
-        if task['end_at']:
-            return timestamp_to_date(task['end_at'])
         if task['start_at']:
             return timestamp_to_date(task['start_at'])
+        if task['end_at']:
+            return timestamp_to_date(task['end_at'])
         if project:
             if project['end_at']:
                 return timestamp_to_date(project['end_at'])
