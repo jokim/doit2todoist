@@ -306,7 +306,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
             print "Creating project: %s" % prname
             r = self.projects.add(prname)
             self.commit()
-            self.sync()
+            #self.sync()
         return self.get_project_by_name(prname)
 
     _max_len_request_uri = 4000
@@ -354,8 +354,6 @@ class TodoistHelperAPI(todoist.TodoistAPI):
                     needs_update = True
             if needs_update:
                 project.update(**kwargs)
-        self.commit()
-
         if kwargs.get('notes'):
             # TODO: Check if note is already added to the project
             self.add_note(kwargs['notes'], project_id=project['id'])
@@ -364,6 +362,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
             except CommitException, e:
                 logging.warn("Failed adding project note to %s: %s", name, e)
                 print "Failed adding project note to %s" % name
+        self.commit()
         return created
 
     def add_project(self, name, **kwargs):
@@ -375,6 +374,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         """
         p = self.projects.add(name, **kwargs)
         self.commit()
+        # TODO: notes?
         return p
 
     def commit(self):
@@ -568,10 +568,8 @@ class Todoist_exporter:
                                       date_string=date_str, 
                                       due_date_utc=due_str,
                                       labels=label_ids)
-            self.tdst.commit()
-            print ret
             if task.get('notes'):
-                print self.tdst.add_note(task['notes'], item_id=ret['id'])
+                print self.tdst.add_note(task['notes'], item_id=ret.temp_id)
             # TODO: Remove debug info when done debugging
             print self.tdst.commit()
 
