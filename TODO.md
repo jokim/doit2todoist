@@ -10,4 +10,4 @@ What the script could be extended with:
   e.g. what the due date should be set to, what project all tasks should go into
   etc.
 
-
+- Subtasks from Doit.im are missing
