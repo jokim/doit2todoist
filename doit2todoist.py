@@ -557,14 +557,16 @@ class Todoist_exporter:
 
             # TODO: Check if recurring dates
             date_str = ''
+            due_str = ''
             if 'repeater' in task:
                 date_str = self.generate_repeating_string(task['repeater'])
             if not date_str or 'repeater' not in task:
-                date_str = self.calculate_due_date(task, doit_project)
+                due_str = self.calculate_due_date(task, doit_project)
             ret = self.tdst.items.add(content=name, project_id=prid, indent=1,
                                       item_order=positions[prid],
                                       priority=task['priority'] + 1,
                                       date_string=date_str, 
+                                      due_date_utc=due_str,
                                       labels=label_ids)
             self.tdst.commit()
             print ret
@@ -581,7 +583,7 @@ class Todoist_exporter:
         start and end dates. A translation is needed:
 
         - If a Doit task has a start and end date, I set the due date to the
-          start date. TODO: Lower the position if the task has a start date into
+          end date. TODO: Lower the position if the task has a start date into
           the future?
 
         - If a Doit task only has a start OR an end date, I set the due date
@@ -591,10 +593,10 @@ class Todoist_exporter:
           instead.
 
         """
-        if task['start_at']:
-            return timestamp_to_date(task['start_at'])
         if task['end_at']:
             return timestamp_to_date(task['end_at'])
+        if task['start_at']:
+            return timestamp_to_date(task['start_at'])
         if project:
             if project['end_at']:
                 return timestamp_to_date(project['end_at'])
