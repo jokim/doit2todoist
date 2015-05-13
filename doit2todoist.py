@@ -491,6 +491,8 @@ class Todoist_exporter:
         super_pos = superpr.data.get('item_order', 999999)
         super_indent = superpr.data.get('indent', 1)
 
+        somedaypr = self.tdst.assert_and_get_project(self.somedayproject_name)
+
         # The returned list is sorted
         for pr in projects:
             name = pr['name']
