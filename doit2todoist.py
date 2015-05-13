@@ -303,7 +303,8 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         try:
             return self.get_project_by_name(prname)
         except NotFoundException:
-            print "Creating project: %s" % prname
+            logger.info('Creating (empty) project: %s', prname)
+            print("Creating project: %s" % prname)
             r = self.projects.add(prname)
             self.commit()
             #self.sync()
@@ -318,7 +319,15 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         
         """
         assert item_id or project_id, "Missing item or project id"
+        if item_id:
+            logger.info("Add note for item_id=%s: '%s...'", item_id,
+                        note[:200].replace('\n', ''))
+        else:
+            logger.info("Add project note for project_id=%s: '%s...'",
+                        project_id, note[:200].replace('\n', ''))
         if len(note) > self._max_len_request_uri:
+            logger.debug("Note too long (%d chars), splitting", len(note))
+            logger.debug("...for now, only cutting out the first part")
             # TODO: Split!
             # For now, I'm only cutting out the first part...
             return self.notes.add(item_id=item_id, project_id=project_id,
@@ -353,14 +362,17 @@ class TodoistHelperAPI(todoist.TodoistAPI):
                 if project.data.get(key) != val:
                     needs_update = True
             if needs_update:
+                logger.info('Updating project "%s" with: %s', name, kwargs)
                 project.update(**kwargs)
+            else:
+                logger.debug("No need to update project: %s", name)
         if kwargs.get('notes'):
             # TODO: Check if note is already added to the project
             self.add_note(kwargs['notes'], project_id=project['id'])
             try:
                 self.commit()
             except CommitException, e:
-                logging.warn("Failed adding project note to %s: %s", name, e)
+                logger.warn("Failed adding project note to %s: %s", name, e)
                 print "Failed adding project note to %s" % name
         self.commit()
         return created
@@ -372,6 +384,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         :return: The created project
         
         """
+        logger.info("Creating project: '%s', with args: %s", name, kwargs)
         p = self.projects.add(name, **kwargs)
         self.commit()
         # TODO: notes?
@@ -385,21 +398,24 @@ class TodoistHelperAPI(todoist.TodoistAPI):
 
         """
         errors = {}
+        logger.debug("Sending commit message to Todoist")
+        logger.debug("Commit queue: %s", self.queue)
         ret = super(TodoistHelperAPI, self).commit()
+        logger.debug("Commit response: %s", ret)
         # Handle limit block exceptions specially, by rerunning it after a few
         # seconds:
         if isinstance(ret, dict) and ret.get('error_tag') == 'LIMITS_REACHED':
-            print "Todoist's request limit reached, pausing for a few seconds"
+            logger.debug("Todoist's request limit reached, pause and rerun")
             time.sleep(6)
             ret = super(TodoistHelperAPI, self).commit()
 
         if isinstance(ret, dict):
             if 'error' in ret:
-                logging.error("Error from Todoist: %s", ret)
+                logger.error("Error from Todoist: %s", ret)
                 raise CommitException('Commit to Todoist failed', ret)
             for key, row in ret.iteritems():
                 if isinstance(row, dict) and 'error' in row:
-                    logging.error("Error from Todoist: %s: %s", key, row)
+                    logger.error("Errors from Todoist: %s: %s", key, row)
                     errors[key] = row
         if errors:
             raise CommitException('Commit to Todoist failed, %d errors' %
@@ -645,10 +661,23 @@ class Todoist_exporter:
                   "Manual intervention is needed.")
             return ""
         else:
-            logging.warn('Unhandled repeater mode: %s', rep['mode'])
+            logger.warn('Unhandled repeater mode: %s', rep['mode'])
             print "Unhandled repeat mode for task, needs manual intervention"
             return ''
         return 'every %s %s' % (cycles[config['cycle']], days)
+
+def setup_logger(debug=False):
+    """Setup the script's logger."""
+    global logger
+    logger = logging.getLogger('doit2todoist')
+    ch = logging.StreamHandler()
+    if debug:
+        logger.setLevel(logging.DEBUG)
+        ch.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    ch.setFormatter(formatter)
+    logger.addHandler(ch)
+    return logger
 
 def main():
     parser = argparse.ArgumentParser(description="Import Doit.im data and "
@@ -661,8 +690,7 @@ def main():
                         help='Print debug information, for developers')
     args = parser.parse_args()
 
-    if args.debug:
-        logging.basicConfig(level=logging.DEBUG)
+    setup_logger(args.debug)
 
     doit_data = parse_json_file(args.doit_file)
     doit = Doit(doit_data)
@@ -673,7 +701,7 @@ def main():
     tdst = TodoistHelperAPI(args.apikey)
     status = tdst.sync()
     if 'error' in status:
-        logging.error('Failed sync with Todoist: %s', status)
+        logger.error('Failed sync with Todoist: %s', status)
         print("Error from Todoist: %s - %s" % (status['error_code'],
                 status['error']))
         return 1
