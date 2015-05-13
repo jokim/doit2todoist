@@ -639,7 +639,7 @@ class Todoist_exporter:
                                      item_order=positions[prid],
                                      priority=task['priority'] + 1,
                                      date_string=date_str, due_date_utc=due_str,
-                                     labels=labels, notes=task['notes'])
+                                     labels=labels, notes=task.get('notes'))
 
     def calculate_due_date(self, task, project):
         """Figure out what due date to set in Todoist for a task.
