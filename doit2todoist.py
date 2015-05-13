@@ -312,10 +312,13 @@ class TodoistHelperAPI(todoist.TodoistAPI):
     _max_len_request_uri = 4000
 
     def add_note(self, note, item_id=None, project_id=None):
-        """Add a note to Todoist.
+        """Add a note to Todoist, if it's not already there.
+
+        If a note with the same content exists for the same item or project, it
+        will not be created once more.
 
         Takes care of long notes by splitting them up.
-        
+
         """
         assert item_id or project_id, "Missing item or project id"
         if item_id:
@@ -324,6 +327,19 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         else:
             logger.info("Add project note for project_id=%s: '%s...'",
                         project_id, note[:200].replace('\n', ''))
+
+        def match(n):
+            if item_id and n['item_id'] != item_id:
+                return False
+            if project_id and n['project_id'] != project_id:
+                return False
+            return n['content'] == note
+
+        existing = self.notes.all(match)
+        if existing:
+            logger.debug("Note already created, skipping")
+            return existing[0]
+
         if len(note) > self._max_len_request_uri:
             logger.debug("Note too long (%d chars), splitting", len(note))
             logger.debug("...for now, only cutting out the first part")
@@ -410,8 +426,8 @@ class TodoistHelperAPI(todoist.TodoistAPI):
             kwargs['labels'] = ()
         it = self.items.add(content=content, project_id=project_id, **kwargs)
         self.commit()
-        if notes:
-            self.add_note(notes, item_id=it['id'])
+        if kwargs['notes']:
+            self.add_note(kwargs['notes'], item_id=it['id'])
         self.commit()
         return it
 
@@ -559,6 +575,7 @@ class Todoist_exporter:
         """
         tasks = self.doit.list_active_tasks()
         self.tdst.items.sync()
+        self.tdst.notes.sync()
         existing = [l['content'] for l in self.tdst.items.all()]
 
         # Positions are relative to the projects
