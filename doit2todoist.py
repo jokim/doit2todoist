@@ -406,6 +406,8 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         if kwargs.get('labels'):
             kwargs['labels'] = [self.get_label_id_by_name(l) for l in
                                 kwargs('labels')]
+        else:
+            kwargs['labels'] = ()
         it = self.items.add(content=content, project_id=project_id, **kwargs)
         self.commit()
         if notes:
@@ -620,7 +622,7 @@ class Todoist_exporter:
                                      item_order=positions[prid],
                                      priority=task['priority'] + 1,
                                      date_string=date_str, due_date_utc=due_str,
-                                     labels=label_ids, notes=task['notes'])
+                                     labels=labels, notes=task['notes'])
 
     def calculate_due_date(self, task, project):
         """Figure out what due date to set in Todoist for a task.
