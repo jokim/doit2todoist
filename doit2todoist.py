@@ -307,7 +307,6 @@ class TodoistHelperAPI(todoist.TodoistAPI):
             print("Creating project: %s" % prname)
             r = self.projects.add(prname)
             self.commit()
-            #self.sync()
         return self.get_project_by_name(prname)
 
     _max_len_request_uri = 4000
@@ -378,8 +377,8 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         return created
 
     def add_project(self, name, **kwargs):
-        """Add a project to Todoist.
-        
+        """Add a project to Todoist and commit.
+
         :rtype: todoist.models.Project
         :return: The created project
         
@@ -387,8 +386,32 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         logger.info("Creating project: '%s', with args: %s", name, kwargs)
         p = self.projects.add(name, **kwargs)
         self.commit()
-        # TODO: notes?
         return p
+
+    def add_item(self, content, project_id, **kwargs):
+        """Add an item to Todoist and commit.
+
+        The note is added as well.
+
+        :param list labels:
+            The list of labels to add to the item. Note that these should be the
+            name of the label and not its ID, as this is translated.
+
+        :rtype: todoist.models.Item
+        :return: The created item
+       
+        """
+        logger.info("Creating item: '%s', for project %s, with args: %s",
+                content, project_id, kwargs)
+        if kwargs.get('labels'):
+            kwargs['labels'] = [self.get_label_id_by_name(l) for l in
+                                kwargs('labels')]
+        it = self.items.add(content=content, project_id=project_id, **kwargs)
+        self.commit()
+        if notes:
+            self.add_note(notes, item_id=it['id'])
+        self.commit()
+        return it
 
     def commit(self):
         """Commit and check feedback and raise Exception.
@@ -422,6 +445,15 @@ class TodoistHelperAPI(todoist.TodoistAPI):
                                   len(errors), errors)
         return ret
 
+    def sync(self, *args, **kwargs):
+        """Sync, with log of status"""
+        ret = super(TodoistHelperAPI, self).sync(*args, **kwargs)
+        logger.debug("Status from Todoist: %d projects, %d items, %d labels, "
+                     "%d notes", len(self.projects.all()),
+                     len(self.items.all()), len(self.labels.all()),
+                     len(self.notes.all()))
+        return ret
+
 class Todoist_exporter:
 
     """ Class that handles the export to Todoist. """
@@ -431,6 +463,8 @@ class Todoist_exporter:
     superproject_name = 'Doit.im'
 
     somedayproject_name = 'Someday Maybe'
+
+    inboxproject_name = 'Inbox'
 
     def __init__(self, doit, tdst):
         self.doit = doit
@@ -544,7 +578,7 @@ class Todoist_exporter:
 
             # Special treatment for tasks in the inbox and someday categories
             if task['attribute'] == 'inbox':
-                prname = 'Inbox'
+                prname = self.inboxproject_name
             elif task['attribute'] == 'noplan':
                 prname = self.somedayproject_name
             elif 'project' in task:
@@ -570,8 +604,6 @@ class Todoist_exporter:
             # added:
             if task['attribute'] == 'waiting':
                 labels.add('waiting')
-            # TODO: Find the labels' IDs in Todoist
-            label_ids = [self.tdst.get_label_id_by_name(l) for l in labels]
 
             # TODO: Check if recurring dates
             date_str = ''
@@ -584,16 +616,11 @@ class Todoist_exporter:
                     # Need to set date_string to something for Todoist to
                     # recognise the due_date_utc to work, don't know why
                     date_str = 'someday'
-            ret = self.tdst.items.add(content=name, project_id=prid, indent=1,
-                                      item_order=positions[prid],
-                                      priority=task['priority'] + 1,
-                                      date_string=date_str, 
-                                      due_date_utc=due_str,
-                                      labels=label_ids)
-            if task.get('notes'):
-                print self.tdst.add_note(task['notes'], item_id=ret.temp_id)
-            # TODO: Remove debug info when done debugging
-            print self.tdst.commit()
+            ret = self.tdst.add_item(content=name, project_id=prid, indent=1,
+                                     item_order=positions[prid],
+                                     priority=task['priority'] + 1,
+                                     date_string=date_str, due_date_utc=due_str,
+                                     labels=label_ids, notes=task['notes'])
 
     def calculate_due_date(self, task, project):
         """Figure out what due date to set in Todoist for a task.
