@@ -30,7 +30,7 @@ def parse_json_file(filename):
     # modified for pure JSON
     return j(raw)
 
-def timestamp_to_date(timestamp, format='%Y-%m-%d'):
+def timestamp_to_date(timestamp, format='%Y-%m-%dT%H:%M'):
     """Convert a Doit timestamp into a format readable by Todoist.
 
     The time is normally not needed, since Todoist only cares about the dates.
@@ -486,12 +486,12 @@ class Todoist_exporter:
         self.tdst.notes.sync()
         
         # Create the meta projects:
+        somedaypr = self.tdst.assert_and_get_project(self.somedayproject_name)
         superpr = self.tdst.assert_and_get_project(self.superproject_name)
         # The projects must be positioned underneath the super project:
         super_pos = superpr.data.get('item_order', 999999)
         super_indent = superpr.data.get('indent', 1)
 
-        somedaypr = self.tdst.assert_and_get_project(self.somedayproject_name)
 
         # The returned list is sorted
         for pr in projects:
@@ -580,6 +580,10 @@ class Todoist_exporter:
                 date_str = self.generate_repeating_string(task['repeater'])
             if not date_str or 'repeater' not in task:
                 due_str = self.calculate_due_date(task, doit_project)
+                if due_str and not date_str:
+                    # Need to set date_string to something for Todoist to
+                    # recognise the due_date_utc to work, don't know why
+                    date_str = 'someday'
             ret = self.tdst.items.add(content=name, project_id=prid, indent=1,
                                       item_order=positions[prid],
                                       priority=task['priority'] + 1,
