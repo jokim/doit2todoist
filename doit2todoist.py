@@ -53,6 +53,10 @@ class CommitException(Exception):
         print "%s (%s)" % (self.args[0], 
                            ', '.join(map(str, self.errors.itervalues())))
 
+class UnhandledRepeaterError(Exception):
+    """For when the repeat mode hasn't been translated."""
+    pass
+
 class Doit:
 
     """ A representation of the data from Doit.im. """
@@ -633,8 +637,13 @@ class Todoist_exporter:
             # TODO: Check if recurring dates
             date_str = ''
             due_str = ''
+            repeater_unhandled = False
             if 'repeater' in task:
-                date_str = self.generate_repeating_string(task['repeater'])
+                try:
+                    date_str = self.generate_repeating_string(task['repeater'])
+                except UnhandledRepeaterError:
+                    # TODO: Add to inbox
+                    repeater_unhandled = True
             if not date_str or 'repeater' not in task:
                 due_str = self.calculate_due_date(task, doit_project)
                 if due_str and not date_str:
@@ -646,23 +655,33 @@ class Todoist_exporter:
                                      priority=task['priority'] + 1,
                                      date_string=date_str, due_date_utc=due_str,
                                      labels=labels, notes=task.get('notes'))
+            if repeater_unhandled:
+                self.tdst.add_item(
+                    content="New item missing repeat date: "
+                            "https://todoist.com/showTask?id=%s - please "
+                            "fix: %s" % (ret['id'], task['repeater']))
 
     def calculate_due_date(self, task, project):
         """Figure out what due date to set in Todoist for a task.
 
         The problem is that Todoist only has one date, the "due date", while
         Doit has both a start and end date, in addition to the projects' own
-        start and end dates. A translation is needed:
+        start and end dates. It seems that Todoist recognizes the "due date" as
+        an *end date*, at least if you look at the Todoist Karma.
+        
+        The algorithm is then:
 
-        - If a Doit task has a start and end date, I set the due date to the
-          end date. TODO: Lower the position if the task has a start date into
-          the future?
+        - If a Doit task has an end date, use that. TODO: Lower the position if
+          the task has a start date into the future?
 
-        - If a Doit task only has a start OR an end date, I set the due date
-          to this date.
+        - If a Doit task only has a start date, set that. This will be
+          incorrect, and might be messy for how you use your GTD system, but at
+          least we have a date.
 
         - If a Doit task doesn't have dates set, I use the projects dates
-          instead.
+          instead, if set. The end date have priority.
+
+        - No due date is set if no dates were found.
 
         """
         if task['end_at']:
@@ -693,7 +712,6 @@ class Todoist_exporter:
         """
         if not rep:
             return ""
-        # TODO: Haven't gotten time to do the translation
 
         # Mapping of cycles
         cycles = ('', '', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th',
@@ -709,19 +727,23 @@ class Todoist_exporter:
         elif rep['mode'] == 'weekly':
             print("Task is set to repeat, but that is not added to Todoist. "
                   "Manual intervention is needed.")
-            return ""
+            # TODO: Translation not fixed
+            raise UnhandledRepeaterError("Unhandled weekly repetition")
         elif rep['mode'] == 'monthly':
             print("Task is set to repeat, but that is not added to Todoist. "
                   "Manual intervention is needed.")
-            return ""
+            # TODO: Translation not fixed
+            raise UnhandledRepeaterError("Unhandled monthly repetition")
         elif rep['mode'] == 'yearly':
             print("Task is set to repeat, but that is not added to Todoist. "
                   "Manual intervention is needed.")
-            return ""
+            # TODO: Translation not fixed
+            raise UnhandledRepeaterError("Unhandled yearly repetition")
         else:
             logger.warn('Unhandled repeater mode: %s', rep['mode'])
             print "Unhandled repeat mode for task, needs manual intervention"
-            return ''
+            # TODO: Translation not fixed
+            raise UnhandledRepeaterError("Unhandled repetition")
         return 'every %s %s' % (cycles[config['cycle']], days)
 
 def setup_logger(debug=False):
