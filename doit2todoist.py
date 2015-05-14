@@ -321,6 +321,8 @@ class TodoistHelperAPI(todoist.TodoistAPI):
 
         """
         assert item_id or project_id, "Missing item or project id"
+        note = note.strip()
+
         if item_id:
             logger.info("Add note for item_id=%s: '%s...'", item_id,
                         note[:200].replace('\n', ''))
@@ -335,7 +337,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
                 return False
             return n['content'] == note
 
-        existing = self.notes.all(match)
+        existing = self.notes.all(filt=match)
         if existing:
             logger.debug("Note already created, skipping")
             return existing[0]
@@ -421,13 +423,17 @@ class TodoistHelperAPI(todoist.TodoistAPI):
                 content, project_id, kwargs)
         if kwargs.get('labels'):
             kwargs['labels'] = [self.get_label_id_by_name(l) for l in
-                                kwargs('labels')]
+                                kwargs['labels']]
         else:
             kwargs['labels'] = ()
+        notes = kwargs.get('notes')
+        # Add notes separately, after the item has been created
+        if 'notes' in kwargs:
+            del kwargs['notes']
         it = self.items.add(content=content, project_id=project_id, **kwargs)
         self.commit()
-        if kwargs['notes']:
-            self.add_note(kwargs['notes'], item_id=it['id'])
+        if notes:
+            self.add_note(notes, item_id=it['id'])
         self.commit()
         return it
 
