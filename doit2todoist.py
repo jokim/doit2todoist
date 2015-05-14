@@ -88,6 +88,9 @@ class Doit:
 
     def print_status(self):
         """Print status on the Doit content."""
+        logger.debug("Status from Doit: %d projects, %d tasks, %d tags, "
+                     "%d contexts", len(self.projects), len(self.tasks),
+                     len(self.tags), len(self.contexts))
         for k in ('tasks', 'projects', 'tags', 'contexts'):
             print "%7d %s" % (len(getattr(self, k)), k)
 
@@ -473,15 +476,6 @@ class TodoistHelperAPI(todoist.TodoistAPI):
                                   len(errors), errors)
         return ret
 
-    def sync(self, *args, **kwargs):
-        """Sync, with log of status"""
-        ret = super(TodoistHelperAPI, self).sync(*args, **kwargs)
-        logger.debug("Status from Todoist: %d projects, %d items, %d labels, "
-                     "%d notes", len(self.projects.all()),
-                     len(self.items.all()), len(self.labels.all()),
-                     len(self.notes.all()))
-        return ret
-
 class Todoist_exporter:
 
     """ Class that handles the export to Todoist. """
@@ -501,12 +495,19 @@ class Todoist_exporter:
     def export(self):
         """Do the full export to Todoist"""
         self.tdst.sync()
+        self.tdst.items.sync()
+        self.tdst.projects.sync()
+        self.tdst.labels.sync()
+        self.tdst.notes.sync()
+        logger.debug("Status in Todoist: %d projects, %d items, %d labels, "
+                     "%d notes", len(self.projects.all()),
+                     len(self.items.all()), len(self.labels.all()),
+                     len(self.notes.all()))
         self.export_labels()
         self.export_projects()
         self.export_tasks()
-        # TODO: Ask for confirmation before commiting
-        ret = self.tdst.commit()
-        print "Commiting. Result:", ret
+        # Not really needed, but just to be sure
+        self.tdst.commit()
 
     def export_labels(self):
         """Export all labels to Todoist.
@@ -519,7 +520,6 @@ class Todoist_exporter:
         names = set(self.doit.list_context_names().keys())
         names.update(self.doit.list_tag_names().keys())
         names.add('waiting')
-        self.tdst.labels.sync()
         existing = [l['name'] for l in self.tdst.labels.all()]
         for name in names:
             if name in existing:
@@ -544,8 +544,6 @@ class Todoist_exporter:
 
         """
         projects = self.doit.list_active_projects()
-        self.tdst.projects.sync()
-        self.tdst.notes.sync()
         
         # Create the meta projects:
         somedaypr = self.tdst.assert_and_get_project(self.somedayproject_name)
@@ -584,8 +582,6 @@ class Todoist_exporter:
 
         """
         tasks = self.doit.list_active_tasks()
-        self.tdst.items.sync()
-        self.tdst.notes.sync()
         existing = [l['content'] for l in self.tdst.items.all()]
 
         # Positions are relative to the projects
@@ -750,13 +746,18 @@ def setup_logger(debug=False):
     """Setup the script's logger."""
     global logger
     logger = logging.getLogger('doit2todoist')
-    ch = logging.StreamHandler()
-    if debug:
-        logger.setLevel(logging.DEBUG)
-        ch.setLevel(logging.DEBUG)
+    ch = logging.FileHandler('doit2todoist.log')
+    logger.setLevel(logging.DEBUG)
+    ch.setLevel(logging.DEBUG)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     ch.setFormatter(formatter)
     logger.addHandler(ch)
+    if debug:
+        ch2 = logging.StreamHandler()
+        ch2.setLevel(logging.DEBUG)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
+        ch2.setFormatter(formatter)
+        logger.addHandler(ch2)
     return logger
 
 def main():
