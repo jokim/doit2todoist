@@ -478,8 +478,8 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         # seconds:
         if isinstance(ret, dict) and ret.get('error_tag') == 'LIMITS_REACHED':
             logger.debug("Todoist's request limit reached, pause and rerun")
-            time.sleep(6)
-            ret = super(TodoistHelperAPI, self).commit()
+            time.sleep(10)
+            return self.commit()
 
         if isinstance(ret, dict):
             if 'error' in ret:
