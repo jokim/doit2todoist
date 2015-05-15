@@ -504,9 +504,9 @@ class Todoist_exporter:
         self.tdst.labels.sync()
         self.tdst.notes.sync()
         logger.debug("Status in Todoist: %d projects, %d items, %d labels, "
-                     "%d notes", len(self.projects.all()),
-                     len(self.items.all()), len(self.labels.all()),
-                     len(self.notes.all()))
+                     "%d notes", len(self.tdst.projects.all()),
+                     len(self.tdst.items.all()), len(self.tdst.labels.all()),
+                     len(self.tdst.notes.all()))
         self.export_labels()
         self.export_projects()
         self.export_tasks()
