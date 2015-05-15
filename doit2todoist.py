@@ -174,6 +174,8 @@ class Doit:
                 active.append(pr)
             else:
                 inactive.append(pr)
+        logger.debug("From Doit, listing %d active and %d inactive projects",
+                     len(active), len(inactive))
         return self.sort_by_pos(active) + self.sort_by_pos(inactive)
 
     def list_active_tasks(self):
@@ -272,6 +274,7 @@ class Doit:
             if t['completed'] or t['archived']:
                 continue
             ret.append(t)
+        logger.debug("From Doit, listing %d active tasks", len(ret))
         return self.sort_by_pos(ret)
 
     @staticmethod
@@ -331,12 +334,12 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         note = note.strip()
 
         if item_id:
-            logger.info("Add note for item_id=%s: '%s...'", item_id,
-                        note[:200].replace('\n', ''))
+            logger.info("Add note for item_id=%s: '%s...' (%d chars)", item_id,
+                        note[:200].replace('\n', ''), len(note))
         else:
-            logger.info("Add project note for project_id=%s: '%s...'",
-                        project_id, note[:200].replace('\n', ''))
-
+            logger.info("Add project note for project_id=%s: '%s...' "
+                        "(%d chars)", project_id, note[:200].replace('\n', ''),
+                        len(note))
         def match(n):
             if item_id and n['item_id'] != item_id:
                 return False
@@ -494,6 +497,7 @@ class Todoist_exporter:
 
     def export(self):
         """Do the full export to Todoist"""
+        logger.debug("Start export from Doit to Todoist")
         self.tdst.sync()
         self.tdst.items.sync()
         self.tdst.projects.sync()
@@ -508,6 +512,7 @@ class Todoist_exporter:
         self.export_tasks()
         # Not really needed, but just to be sure
         self.tdst.commit()
+        logger.debug("Export from Doit to Todoist done")
 
     def export_labels(self):
         """Export all labels to Todoist.
@@ -522,9 +527,11 @@ class Todoist_exporter:
         names.add('waiting')
         existing = [l['name'] for l in self.tdst.labels.all()]
         for name in names:
+            logger.debug("Prosessing Doit context or tag: %s", name)
             if name in existing:
                 continue
             print "Creating label: %s" % name
+            logger.debug("Creating new label in Todoist: %s", name)
             self.tdst.labels.add(name)
             self.tdst.commit()
 
@@ -552,9 +559,9 @@ class Todoist_exporter:
         super_pos = superpr.data.get('item_order', 999999)
         super_indent = superpr.data.get('indent', 1)
 
-
         # The returned list is sorted
         for pr in projects:
+            logger.debug("Processing Doit project: %s", pr)
             name = pr['name']
             created = self.tdst.assert_project(pr['name'],
                                                indent=super_indent + 1,
@@ -591,6 +598,7 @@ class Todoist_exporter:
 
         # The returned list is sorted
         for task in tasks:
+            logger.debug("Processing Doit task: %s", task)
             name = task['title']
             if name in existing:
                 # TODO: Handle updating existing tasks!
