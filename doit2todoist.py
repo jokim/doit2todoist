@@ -5,14 +5,10 @@ import sys
 import logging
 import argparse
 import time
-import todoist
-try:
-    import simplejson
-    SIMPLEJSON = True
-except ImportError:
-    import json
-    SIMPLEJSON = False
+from HTMLParser import HTMLParser
+import json
 
+import todoist
 
 def parse_json_file(filename):
     """Read in a JSON file and return native python data."""
@@ -22,13 +18,46 @@ def parse_json_file(filename):
     # Some tweaks, just for the parser to accept the file
     raw = raw.replace('\r', '\\r')
     raw = raw.replace('\n', '\\n')
-    if SIMPLEJSON:
-        j = simplejson.loads
-    else:
-        j = json.loads
     # TODO: Handle the exception that the file is still in HTML and not properly
     # modified for pure JSON
-    return j(raw)
+    try:
+        return json.loads(raw)
+    except ValueError:
+        # This could for instance happen if the user hasn't stripped away the
+        # HTML tags from the file. Retry by trying to only fetch what's inside
+        # a <body> element, if any.
+        p = SimpleHTMLParser()
+        p.feed(raw)
+        p.close()
+        return json.loads(p.get_body())
+
+class SimpleHTMLParser(HTMLParser):
+
+    """Simple class for just extracting the content of <body>.
+
+    Working for the special case where the Doit data has been extracted, as
+    described in README.md in the repo of this script.
+
+    """
+    def __init__(self):
+        self._in_body = False
+        self.bodydata = []
+        HTMLParser.__init__(self)
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'body':
+            self._in_body = True
+
+    def handle_endtag(self, tag):
+        if tag == 'body':
+            self._in_body = False
+
+    def handle_data(self, data):
+        if self._in_body:
+            self.bodydata.append(data)
+
+    def get_body(self):
+        return ''.join(self.bodydata)
 
 def timestamp_to_date(timestamp, format='%Y-%m-%dT%H:%M'):
     """Convert a Doit timestamp into a format readable by Todoist.
@@ -763,6 +792,7 @@ class Todoist_exporter:
             # TODO: Translation not fixed
             raise UnhandledRepeaterError("Unhandled repetition")
         return 'every %s %s' % (cycles[config['cycle']], days)
+
 
 def setup_logger(debug=False):
     """Setup the script's logger."""

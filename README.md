@@ -102,18 +102,24 @@ To get your data from from Doit.im, you need to:
 
 3. Run the javascript code:
 
-    $('body').text(JSON.stringify({'tasks': TASKS, 'projects': Doit.projects,
-                'contexts': Doit.contexts, 'tags': Doit.tags, 'goals':
-                Doit.goals, 'contacts': Doit.contacts}));
+   ``` 
+   $('body').text(JSON.stringify({'tasks': TASKS, 'projects': Doit.projects,
+              'contexts': Doit.contexts, 'tags': Doit.tags,
+              'goals': Doit.goals, 'contacts': Doit.contacts}));
+   ``` 
 
    This will change the HTML page and output your data. Don't worry, it will get
    back to original if you refresh the page, but don't do that now.
 
+   TODO: I couldn't find out where subtasks were stored. If you do, please let
+   me know. :)
+
 4. Save the HTML document.
 
-5. Open the HTML document and strip out the remaining HTML elements, so that
-   only the JSON data is left.
+5. _Optional_: Open the HTML document and strip out the remaining HTML elements,
+   so that only the JSON data is left. This is not needed for the script, but a
+   clean JSON file would make it easier if you want use other imports. :)
 
-You now have a valid JSON file, with all your projects, tasks, contexts, tags
+You now have a file that contains all your projects, tasks, contexts, tags
 etc. Some of the data is internal references for Doit. The file could now be
 used for importing to other GTD applications, like Todoist.
