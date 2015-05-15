@@ -308,6 +308,10 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         """Find the project id by the name of the project."""
         return self.get_project_by_name(name)['id']
 
+    def get_projectname(self, project_id):
+        """Return the project's name."""
+        return self.projects.get_by_id(project_id)['name']
+
     def assert_and_get_project(self, prname):
         """Shortcut for getting a project, and creating it if doesn't exist."""
         try:
@@ -429,8 +433,8 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         :return: The created item
        
         """
-        logger.info("Creating item: '%s', for project %s, with args: %s",
-                content, project_id, kwargs)
+        logger.info("Creating item: '%s', for project %s (%s), with args: %s",
+                content, project_id, self.get_projectname(project_id), kwargs)
         if kwargs.get('labels'):
             kwargs['labels'] = [self.get_label_id_by_name(l) for l in
                                 kwargs['labels']]
@@ -446,6 +450,17 @@ class TodoistHelperAPI(todoist.TodoistAPI):
             self.add_note(notes, item_id=it['id'])
         self.commit()
         return it
+
+    def add_inbox_item(self, content):
+        """Add an item to Todoist's Inbox.
+        
+        This is a shortcut for a simple task, just adding something to the
+        Inbox. If you want so set some params, please see `add_item`.
+        
+        """
+        if not hasattr(self, '_inbox_id'):
+            self._inbox_id = self.get_project_id_by_name('Inbox')
+        return self.add_item(content=content, project_id = self._inbox_id)
 
     def commit(self):
         """Commit and check feedback and raise Exception.
@@ -660,8 +675,7 @@ class Todoist_exporter:
                                      date_string=date_str, due_date_utc=due_str,
                                      labels=labels, notes=task.get('notes'))
             if repeater_unhandled:
-                self.tdst.add_item(
-                    content="New item missing repeat date: "
+                self.tdst.add_inbox_item("New item missing repeat date: "
                             "https://todoist.com/showTask?id=%s - please "
                             "fix: %s" % (ret['id'], task['repeater']))
 
