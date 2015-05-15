@@ -1,41 +1,76 @@
 Doit2Todoist
 ============
 
-This is a short script for importing projects and tasks into Todoist, from data
-formatted in Doit.im's manner. Todoist supports importing tasks, but only into
-one project at a time. This script imports all my projects from Doit.im in one
-go, with their tasks per project.
+This is a simple script for importing projects and tasks into Todoist, from data
+formatted in Doit.im's manner. Todoist have native support for importing tasks,
+but only into one project at a time. This script imports all my projects from
+Doit.im in one go, with their tasks per project.  Unfortunately, a small part of
+manual work is needed for getting the data out of Doit.im, see further down.
 
-The script works like:
+The workflow of the export:
 
-1. You fetch the data from Doit.im by executing some javascript code and saves
-   the HTML file.
+1. You must first fetch the data from Doit.im by executing some javascript code
+   and save the HTML file. The file will contain most of your Doit data in JSON
+   format.
 
-2. Start the script with the file as input.
+2. Run the script, `python doit2todoist.py` with the file as input and your API
+   key in Todoist. Use the argument `--help` for guidance.
 
-3. The script will communicate with Todoist and add the data to the given
-   account.
+3. The script communicates with Todoist and adds the data to the given account.
+
+_Disclosure_: This script was written in short bursts at nights, with an infant
+in my lap, trying to get him to sleep. _Do not expect quality software_!
 
 Caveats
 -------
 
 Some functionality requires *paid membership* in Todoist.
 
-NOTE: Todoist is not mainly for GTD, so your setup might vary from this. This
-script might therefore not be what you want. Some general rules for the import:
+Todoist is not mainly for GTD, so you might prefer a different setup. This
+script might therefore not be what you want, or you would need to tweak it
+yourself.
 
-- Each GTD project becomes its own Todoist project. Some prefers to have all the
-  GTD projects inside one Todoist project, which could be implemented through
-  Todoist own import functionality.
+Some functionality is either missing or too different for me to be able to
+implement it. For instance doesn't Todoist have end dates. Some functionality
+will therefore be missing.
 
-- All GTD contexts becomes their own Todoist label.
+How is Doit-data translated to Todoist
+--------------------------------------
 
-- All Doit tags becomes their own Todoist label.
+Some general rules for the import:
 
-- Doit has start and end dates, Todoist only has a due date. The sync takes a
-  guess.
+- Each GTD project becomes its own Todoist project, stuffed underneath a super
+  project named "Doit.im". You would probably want to move the projects
+  afterwards, e.g. to a Personal and Work project.
 
-- Repeating tasks are not added correctly
+  Some prefer to have all the GTD projects inside one Todoist project, which
+  could be implemented through Todoist native import functionality, or you could
+  just modify this script. :)
+
+- The export creates the super projects "Doit.im" and "Someday Maybe". Tasks and
+  projects are added to these, in addition to "Inbox".
+
+- All GTD _contexts_ are converted to Todoist _labels_.
+
+- All Doit _tags_ are also converted to Todoist _labels_.
+
+- Doit has start and end dates, Todoist only has a due date. The export will
+  try:
+
+   # If the task has an end date, set it as the due date.
+
+   # If the task has a start date, set it as the due date.
+
+   # If the task's project has an end date, set it as the due date.
+
+   # If the task's project has a start date, set it as the due date.
+
+- _Repeating tasks_ are not added correctly, and needs manual settings. An item
+  is added to Todoist's Inbox to notify you about what needs to be set per
+  repeating task.
+
+- All tasks in _Waiting_ mode in Doit get a label called `@waiting` to mark
+  them as this.
 
 Requirements
 ------------
