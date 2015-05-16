@@ -348,8 +348,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         except NotFoundException:
             logger.info('Creating (empty) project: %s', prname)
             print("Creating project: %s" % prname)
-            r = self.projects.add(prname)
-            self.commit()
+            self.add_project(prname)
         return self.get_project_by_name(prname)
 
     _max_len_request_uri = 4000
@@ -605,8 +604,12 @@ class Todoist_exporter:
         projects = self.doit.list_active_projects()
         
         # Create the meta projects:
-        somedaypr = self.tdst.assert_and_get_project(self.somedayproject_name)
-        superpr = self.tdst.assert_and_get_project(self.superproject_name)
+        self.tdst.assert_and_get_project(self.somedayproject_name)
+        self.tdst.assert_and_get_project(self.superproject_name)
+        # Sync with Todoist to make sure the item_order is updated:
+        self.tdst.sync()
+        self.tdst.projects.sync()
+        superpr = self.tdst.get_project_by_name(self.superproject_name)
         # The projects must be positioned underneath the super project:
         if 'item_order' in superpr.data:
             super_pos = superpr['item_order']
