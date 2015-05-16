@@ -525,7 +525,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
 
     def get_max_project_position(self):
         """Get the max `item_order` set in Todoist for projects."""
-        return max(p['item_order'] for p in self.projects.all())
+        return max(p.data.get('item_order', 0) for p in self.projects.all())
 
 class Todoist_exporter:
 
