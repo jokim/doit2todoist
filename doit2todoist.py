@@ -393,8 +393,10 @@ class TodoistHelperAPI(todoist.TodoistAPI):
             return self.notes.add(item_id=item_id, project_id=project_id,
                                   content=note[:self._max_len_request_uri])
         else:
-            return self.notes.add(item_id=item_id, content=note,
-                                  project_id=project_id)
+            n = self.notes.add(item_id=item_id, content=note,
+                               project_id=project_id)
+            logger.debug("Note created: %s", n)
+            return n
 
     def assert_project(self, name, **kwargs):
         """Assert that a given project exists and is updated.
@@ -447,6 +449,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         logger.info("Creating project: '%s', with args: %s", name, kwargs)
         p = self.projects.add(name, **kwargs)
         self.commit()
+        logger.debug("Project created: %s", p)
         return p
 
     def add_item(self, content, project_id, **kwargs):
@@ -478,6 +481,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         if notes:
             self.add_note(notes, item_id=it['id'])
         self.commit()
+        logger.debug("Item created: %s", it)
         return it
 
     def add_inbox_item(self, content):
