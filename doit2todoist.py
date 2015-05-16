@@ -523,6 +523,10 @@ class TodoistHelperAPI(todoist.TodoistAPI):
                                   len(errors), errors)
         return ret
 
+    def get_max_project_position(self):
+        """Get the max `item_order` set in Todoist for projects."""
+        return max(p['item_order'] for p in self.projects.all())
+
 class Todoist_exporter:
 
     """ Class that handles the export to Todoist. """
@@ -600,7 +604,13 @@ class Todoist_exporter:
         somedaypr = self.tdst.assert_and_get_project(self.somedayproject_name)
         superpr = self.tdst.assert_and_get_project(self.superproject_name)
         # The projects must be positioned underneath the super project:
-        super_pos = superpr.data.get('item_order', 999999)
+        if 'item_order' in superpr.data:
+            super_pos = superpr['item_order']
+            logger.debug("Setting project's item_order: %s", super_pos)
+        else:
+            super_pos = self.tdst.get_max_project_position() + 1
+            logger.debug("Setting project's item_order to max: %s", super_pos)
+
         super_indent = superpr.data.get('indent', 1)
 
         # The returned list is sorted
