@@ -95,11 +95,26 @@ class Doit:
         self._doit_data = doit_data
 
         cl = self._cleanup
-        self.tasks = dict((t['id'], cl(t)) for t in doit_data['tasks'])
         self.tags = dict((t['uuid'], cl(t)) for t in doit_data['tags'])
         self.contexts = dict((t['uuid'], cl(t)) for t in doit_data['contexts'])
         self.projects = dict((t['uuid'], cl(t)) for t in doit_data['projects'])
-        # self.contacts not tested yet
+        self.tasks = self._tidy_tasks(doit_data['tasks'])
+
+    def _tidy_tasks(self, doit_tasks):
+        """Sort and group the given Doit tasks so they're easier to process.
+
+        Each task in Doit has a unique ID, and an UUID. The latter is the same
+        for a task and its occurences if it is set to repeat. We group these
+        together.
+
+        """
+        ret = {}
+        for t in doit_tasks:
+            t = self._cleanup(t)
+            if t.get('repeat_no'):
+                logger.debug("Skipping repeat occurence from Doit: %s", ppf(t))
+            ret[t['uuid']] = t
+        return ret
 
     def _cleanup(self, item):
         """Do clean up on a given item and return it prettified.
@@ -114,6 +129,9 @@ class Doit:
         for k in ('name', 'title'):
             if k in ret:
                 ret[k] = ret[k].replace('\n', '')
+        # Remove element created by jQuery
+        if '$$hashKey' in ret:
+            del ret['$$hashKey']
         return ret
 
     def print_status(self):
@@ -262,7 +280,14 @@ class Doit:
             {'yearly': {'cycle': 1, 'day_of_month': 21, 'month': 11},
              'ends_on': 0, 'mode': 'yearly'}
 
-        - repeat_no (str): Looks like the date for when it should be repeated?
+        - repeat_no (str): Set for children of a repeating task. All tasks
+          automatically created by a repeating task gets this variable set.  It
+          seems to contain the date for when it should be repeated, but I
+          haven't verified it.
+
+          I have ordered the tasks, so that repeater's children task are not
+          added, only the parent repeater.
+
         - source (str): From where the task is retrieved from. Example: 'email'.
           This doesn't seem to always be correct, as I've seen tasks sent
           through mail without this tag.
