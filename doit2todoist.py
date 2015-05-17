@@ -734,18 +734,17 @@ class Todoist_exporter:
             date_str = ''
             due_str = ''
             repeater_unhandled = False
-            if 'repeater' in task:
+            if task.get('repeater'):
                 try:
                     date_str = self.generate_repeating_string(task['repeater'])
                 except UnhandledRepeaterError:
                     # TODO: Add to inbox
                     repeater_unhandled = True
-            if not date_str or 'repeater' not in task:
+            else:
                 due_str = self.calculate_due_date(task, doit_project)
-                if due_str and not date_str:
-                    # Need to set date_string to something for Todoist to
-                    # recognise the due_date_utc to work, don't know why
-                    date_str = 'someday'
+                # Need to set date_string to something for Todoist to
+                # recognise the due_date_utc to work, don't know why.
+                date_str = 'someday'
             ret = self.tdst.add_item(content=name, project_id=prid, indent=1,
                                      item_order=positions[prid],
                                      priority=task['priority'] + 1,
