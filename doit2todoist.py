@@ -5,6 +5,7 @@ import sys
 import logging
 import argparse
 import time
+from pprint import PrettyPrinter
 from HTMLParser import HTMLParser
 import json
 
@@ -394,7 +395,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         else:
             n = self.notes.add(item_id=item_id, content=note,
                                project_id=project_id)
-            logger.debug("Note created: %s", n)
+            logger.debug("Note created: %s", ppf(n))
             return n
 
     def assert_project(self, name, **kwargs):
@@ -423,7 +424,7 @@ class TodoistHelperAPI(todoist.TodoistAPI):
                 if project.data.get(key) != val:
                     needs_update = True
             if needs_update:
-                logger.info('Updating project "%s" with: %s', name, kwargs)
+                logger.info('Updating project "%s" with: %s', name, ppf(kwargs))
                 project.update(**kwargs)
             else:
                 logger.debug("No need to update project: %s", name)
@@ -445,10 +446,10 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         :return: The created project
         
         """
-        logger.info("Creating project: '%s', with args: %s", name, kwargs)
+        logger.info("Creating project: '%s', with args: %s", name, ppf(kwargs))
         p = self.projects.add(name, **kwargs)
         self.commit()
-        logger.debug("Project created: %s", p)
+        logger.debug("Project created: %s", ppf(p))
         return p
 
     def add_item(self, content, project_id, **kwargs):
@@ -465,7 +466,8 @@ class TodoistHelperAPI(todoist.TodoistAPI):
        
         """
         logger.info("Creating item: '%s', for project %s (%s), with args: %s",
-                content, project_id, self.get_projectname(project_id), kwargs)
+                    content, project_id, self.get_projectname(project_id),
+                    ppf(kwargs))
         if kwargs.get('labels'):
             kwargs['labels'] = [self.get_label_id_by_name(l) for l in
                                 kwargs['labels']]
@@ -479,8 +481,12 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         self.commit()
         if notes:
             self.add_note(notes, item_id=it['id'])
-        self.commit()
-        logger.debug("Item created: %s", it)
+            try:
+                self.commit()
+            except CommitException, e:
+                logger.warn("Failed adding note to item %s: %s", name, e)
+                print "Failed adding item note to %s" % name
+        logger.debug("Item created: %s", ppf(it))
         return it
 
     def add_inbox_item(self, content):
@@ -503,9 +509,9 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         """
         errors = {}
         logger.debug("Sending commit message to Todoist")
-        logger.debug("Commit queue: %s", self.queue)
+        logger.debug("Commit queue: %s", ppf(self.queue))
         ret = super(TodoistHelperAPI, self).commit()
-        logger.debug("Commit response: %s", ret)
+        logger.debug("Commit response: %s", ppf(ret))
         # Handle limit block exceptions specially, by rerunning it after a few
         # seconds:
         if isinstance(ret, dict) and ret.get('error_tag') == 'LIMITS_REACHED':
@@ -622,7 +628,7 @@ class Todoist_exporter:
 
         # The returned list is sorted
         for pr in projects:
-            logger.debug("Processing Doit project: %s", pr)
+            logger.debug("Processing Doit project: %s", ppf(pr))
             name = pr['name']
             created = self.tdst.assert_project(pr['name'],
                                                indent=super_indent + 1,
@@ -659,7 +665,7 @@ class Todoist_exporter:
 
         # The returned list is sorted
         for task in tasks:
-            logger.debug("Processing Doit task: %s", task)
+            logger.debug("Processing Doit task: %s", ppf(task))
             name = task['title']
             if name in existing:
                 # TODO: Handle updating existing tasks!
@@ -827,6 +833,9 @@ def setup_logger(debug=False):
         formatter = logging.Formatter('%(asctime)s - %(levelname)s: %(message)s')
         ch2.setFormatter(formatter)
         logger.addHandler(ch2)
+    global pp, ppf
+    pp = PrettyPrinter(indent=4, width=100)
+    ppf = pp.pformat
     return logger
 
 def main():
