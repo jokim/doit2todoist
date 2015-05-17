@@ -509,8 +509,8 @@ class TodoistHelperAPI(todoist.TodoistAPI):
             try:
                 self.commit()
             except CommitException, e:
-                logger.warn("Failed adding note to item %s: %s", name, e)
-                print "Failed adding item note to %s" % name
+                logger.warn("Failed adding note to item '%s': %s", content, e)
+                print "Failed adding item note to: %s" % content
         logger.debug("Item created: %s", ppf(it))
         return it
 
