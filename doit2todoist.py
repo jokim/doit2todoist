@@ -535,6 +535,8 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         errors = {}
         logger.debug("Sending commit message to Todoist")
         logger.debug("Commit queue: %s", ppf(self.queue))
+        # Take backup of the queue, in case of a rerun
+        commit_queue = self.queue[:]
         ret = super(TodoistHelperAPI, self).commit()
         logger.debug("Commit response: %s", ppf(ret))
         # Handle limit block exceptions specially, by rerunning it after a few
@@ -542,6 +544,8 @@ class TodoistHelperAPI(todoist.TodoistAPI):
         if isinstance(ret, dict) and ret.get('error_tag') == 'LIMITS_REACHED':
             logger.debug("Todoist's request limit reached, pause and rerun")
             time.sleep(10)
+            # The queue seems to be drained, so forcing it back in
+            self.queue = commit_queue
             return self.commit()
 
         if isinstance(ret, dict):
@@ -876,6 +880,7 @@ def main():
     setup_logger(args.debug)
 
     doit_data = parse_json_file(args.doit_file)
+    logger.info("Start doit2todoist sync")
     doit = Doit(doit_data)
 
     print("Doit.im data read:")
