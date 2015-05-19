@@ -762,35 +762,33 @@ class Todoist_exporter:
     def calculate_due_date(self, task, project):
         """Figure out what due date to set in Todoist for a task.
 
-        The problem is that Todoist only has one date, the "due date", while
-        Doit has both a start and end date, in addition to the projects' own
-        start and end dates. It seems that Todoist recognizes the "due date" as
-        an *end date*, at least if you look at the Todoist Karma.
-        
-        The algorithm is then:
+        The algorithm uses the first date found:
 
-        - If a Doit task has an end date, use that. TODO: Lower the position if
-          the task has a start date into the future?
+        1. The Doit task's end date, if set.
 
-        - If a Doit task only has a start date, set that. This will be
-          incorrect, and might be messy for how you use your GTD system, but at
-          least we have a date.
+        2. The Doit task's project's end date, if set.
 
-        - If a Doit task doesn't have dates set, I use the projects dates
-          instead, if set. The end date have priority.
+        3. No due date.
 
-        - No due date is set if no dates were found.
+        Todoist only has one date for items, the "due date", while Doit has both
+        a start and end date, in addition to the projects' own start and end
+        dates. It seems that Todoist recognizes the "due date" as an *end date*,
+        at least if you look at the Todoist Karma.
+
+        The algorithm _could_ make some use of the start date too, but this
+        highly depends on how you set up your own system. For me it didn't work
+        to make use of the start dates from Doit in Todoist.
 
         """
         if task['end_at']:
             return timestamp_to_date(task['end_at'])
-        if task['start_at']:
-            return timestamp_to_date(task['start_at'])
+        #if task['start_at']:
+        #    return timestamp_to_date(task['start_at'])
         if project:
             if project['end_at']:
                 return timestamp_to_date(project['end_at'])
-            if project['start_at']:
-                return timestamp_to_date(project['start_at'])
+            #if project['start_at']:
+            #    return timestamp_to_date(project['start_at'])
         return None
 
     def generate_repeating_string(self, rep):
